@@ -1,0 +1,2 @@
+include gcs_clients/VERSION
+recursive-include gcs_clients *
