@@ -17,6 +17,7 @@ To use this client, you'll need these settings in your application or script:
     GCS_BUCKET_NAME=""
 
 Optional settings:
+
     GCS_REPLACE=False  # replace contents if already exists
     GCS_TIMEOUT=5  # request timeout in seconds
     GCS_NUM_RETRIES=3  # number of request retries

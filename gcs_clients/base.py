@@ -9,6 +9,7 @@ import socket
 from commonconf import settings
 from google.cloud import storage
 from google.api_core.exceptions import GoogleAPIError
+from google.cloud.exceptions import NotFound
 from io import StringIO
 from mock import MagicMock
 from threading import local
@@ -18,6 +19,7 @@ class GCSClient():
     """
     A settings-based wrapper around GCSBucketClient client
     """
+
     def __init__(self):
         self._local = local()
 
@@ -66,40 +68,39 @@ class GCSBucketClient():
         :param num_retries: Number of request retries, defaults to 3
         :type num_retries: int (optional)
         """
-        self.client = self._get_client()
-        self.bucket = self._get_bucket(bucket_name)
+        self.bucket_name = bucket_name
         self.replace = replace
         self.timeout = timeout
         self.num_retries = num_retries
 
-    def _get_client(self):
+    @property
+    def client(self):
         """
         Retreive GCS client object
         """
-        env = os.getenv("ENV")
-        if env == "localdev" or not env:
-            # mock the GCS storage client on localdev
-            mock_client = MagicMock()
-            mock_bucket = MagicMock()
-            mock_blob = MagicMock()
-            mock_blob.upload_from_file = MagicMock(return_value=True)
-            mock_bucket.get_blob = MagicMock(return_value=mock_blob)
-            mock_client.get_bucket = mock_bucket
-            client = mock_client
-        else:
+        if self.client is None:
             client = storage.Client()
-        return client
+            self.client = client
+            return self.client
+        else:
+            return self.client
 
-    def _get_bucket(self, bucket_name):
+    @property
+    def bucket(self, bucket_name):
         """
         Retreive GCS bucket object
 
         :param bucket_name: Name of the bucket to read/write from
         :type bucket_name: str
         """
-        return self.client.get_bucket(bucket_name)
+        if self.bucket is None:
+            bucket = self.client.get_bucket(bucket_name)
+            self.bucket = bucket
+            return self.bucket
+        else:
+            return self.bucket
 
-    def upload(self, url_key, content):
+    def _upload(self, url_key, content):
         """
         Upload a string to GCS bucket
 
@@ -121,6 +122,18 @@ class GCSBucketClient():
             blob.upload_from_file(content, num_retries=self.num_retries,
                                 timeout=self.timeout)
 
+    def delete(self, url_key):
+        """
+        Delete content matching url_key from GCS bucket
+
+        :param url_key: URL response to cache 
+        :type url_key: str
+        """
+        try:
+            self.bucket.get_blob(url_key).delete(timeout=self.timeout)
+        except NotFound as ex:
+            logging.error("gcp {}: {}".format(url_key, ex))
+
     def get(self, url_key):
         """
         Download content from a GCS bucket as a string
@@ -128,7 +141,12 @@ class GCSBucketClient():
         :param url_key: URL response to cache 
         :type url_key: str
         """
-        return self.bucket.get_blob(url_key).download_as_string()
+        try:
+            content = self.bucket.get_blob(url_key).download_as_string(
+                                                     timeout=self.timeout)
+        except NotFound as ex:
+            logging.error("gcp {}: {}".format(url_key, ex))
+        return json.loads(content)
 
     def set(self, url_key, content):
         """
@@ -137,4 +155,4 @@ class GCSBucketClient():
         :param url_key: URL response to cache 
         :type url_key: str
         """
-        self.upload(url_key, content)
+        self._upload(url_key, content)

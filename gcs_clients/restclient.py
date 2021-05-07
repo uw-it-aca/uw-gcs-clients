@@ -61,7 +61,7 @@ class RestclientGCSClient(GCSClient):
           * Zero, for no expiry,
           * None, indicating that the item should not be cached.
         """
-        return getattr(settings, "RESTCLIENTS_GCS_DEFAULT_EXPIRY", 300)
+        return getattr(settings, "RESTCLIENTS_GCS_DEFAULT_EXPIRY", 0)
 
     @staticmethod
     def _create_key(service, url):
