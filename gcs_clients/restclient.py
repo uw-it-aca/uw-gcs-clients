@@ -1,13 +1,11 @@
 # Copyright 2021 UW-IT, University of Washington
 # SPDX-License-Identifier: Apache-2.0
 
-import json
 import logging
 from commonconf import settings
 from gcs_clients import GCSClient
 from google.api_core.exceptions import GoogleAPIError
-from hashlib import sha1
-from io import StringIO
+from urllib.parse import urlparse
 
 
 class CachedHTTPResponse():
@@ -35,7 +33,7 @@ class RestclientGCSClient(GCSClient):
         if expire is not None:
             data = self.get(self._create_key(service, url))
             if data:
-                return {"response": CachedHTTPResponse(**json.loads(data))}
+                return {"response": CachedHTTPResponse(**data)}
 
     def deleteCache(self, service, url):
         return self.delete(self._create_key(service, url))
@@ -65,7 +63,13 @@ class RestclientGCSClient(GCSClient):
 
     @staticmethod
     def _create_key(service, url):
-        url_key = sha1(url.encode("utf-8")).hexdigest()
+        parsed = urlparse(url)
+        path = parsed.path
+        query = parsed.query
+        if path and query:
+            url_key = "?".join([path, query])
+        else:
+            url_key = path
         return "{}-{}".format(service, url_key)
 
     @staticmethod

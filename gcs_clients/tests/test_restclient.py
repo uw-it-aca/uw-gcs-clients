@@ -1,12 +1,10 @@
 # Copyright 2021 UW-IT, University of Washington
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest import TestCase, skipUnless
-from commonconf import settings, override_settings
-from gcs_clients import GCSClient, RestclientGCSClient
+from unittest import TestCase
+from commonconf import override_settings
+from gcs_clients import RestclientGCSClient
 from gcs_clients.restclient import CachedHTTPResponse
-import os
-
 
 
 class MockClientCachePolicy(RestclientGCSClient):
@@ -80,11 +78,13 @@ class TestRestclientGCSClient(TestCase):
 
     def test_create_key(self):
         self.assertEqual(self.client._create_key("abc", "/api/v1/test"),
-                         "abc-8157d24840389b1fec9480b59d9db3bde083cfee")
-
+                         "abc-/api/v1/test")
         long_url = "/api/v1/{}".format("x" * 250)
         self.assertEqual(self.client._create_key("abc", long_url),
-                         "abc-61fdd52a3e916830259ff23198eb64a8c43f39f2")
+                         "abc-{}".format(long_url))
+        self.assertEqual(
+            self.client._create_key("xyz", "/api/v1/test?p1=true&p2=10"),
+            "xyz-/api/v1/test?p1=true&p2=10")
 
     def test_format_data(self):
         self.test_response = CachedHTTPResponse(

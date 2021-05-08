@@ -3,7 +3,6 @@
 
 import json
 import logging
-import os
 import socket
 
 from commonconf import settings
@@ -11,7 +10,6 @@ from google.cloud import storage
 from google.api_core.exceptions import GoogleAPIError
 from google.cloud.exceptions import NotFound
 from io import StringIO
-from mock import MagicMock
 from threading import local
 
 
@@ -72,6 +70,8 @@ class GCSBucketClient():
         self.replace = replace
         self.timeout = timeout
         self.num_retries = num_retries
+        self._bucket = None
+        self._client = None
 
     @property
     def client(self):
@@ -80,36 +80,69 @@ class GCSBucketClient():
         """
         if self.client is None:
             client = storage.Client()
-            self.client = client
-            return self.client
+            self._client = client
+            return self._client
         else:
-            return self.client
+            return self._client
+
+    @client.setter
+    def client(self, value):
+        self._client = value
 
     @property
-    def bucket(self, bucket_name):
+    def bucket(self):
         """
         Retreive GCS bucket object
 
         :param bucket_name: Name of the bucket to read/write from
         :type bucket_name: str
         """
-        if self.bucket is None:
-            bucket = self.client.get_bucket(bucket_name)
-            self.bucket = bucket
-            return self.bucket
+        if self._bucket is None:
+            bucket = self.client.get_bucket(self.bucket_name)
+            self._bucket = bucket
+            return self._bucket
         else:
-            return self.bucket
+            return self._bucket
 
-    def _upload(self, url_key, content):
+    @bucket.setter
+    def bucket(self, value):
+        self._bucket = value
+
+    def delete(self, url_key):
         """
-        Upload a string to GCS bucket
+        Delete content matching url_key from GCS bucket
 
-        :param url_key: URL response to cache 
+        :param url_key: URL response to cache
         :type url_key: str
-        :param content: File contents to upload
-        :type content: str
         """
+        try:
+            self.bucket.get_blob(url_key).delete(timeout=self.timeout)
+        except NotFound as ex:
+            logging.error("gcp {}: {}".format(url_key, ex))
+            raise
 
+    def get(self, url_key):
+        """
+        Download content from a GCS bucket as a string
+
+        :param url_key: URL response to cache
+        :type url_key: str
+        """
+        try:
+            content = self.bucket.get_blob(url_key).download_as_string(
+                                                     timeout=self.timeout)
+        except NotFound as ex:
+            logging.error("gcp {}: {}".format(url_key, ex))
+            raise
+        return json.loads(content)
+
+    def set(self, url_key, content):
+        """
+        Upload a string or file-like object contents to GCS bucket
+
+        :param url_key: URL response to cache
+        :type url_key: str
+        """
         blob = None
         if self.replace is False:
             blob = self.bucket.get_blob(url_key)
@@ -120,39 +153,4 @@ class GCSBucketClient():
                                     timeout=self.timeout)
         elif isinstance(content, StringIO):
             blob.upload_from_file(content, num_retries=self.num_retries,
-                                timeout=self.timeout)
-
-    def delete(self, url_key):
-        """
-        Delete content matching url_key from GCS bucket
-
-        :param url_key: URL response to cache 
-        :type url_key: str
-        """
-        try:
-            self.bucket.get_blob(url_key).delete(timeout=self.timeout)
-        except NotFound as ex:
-            logging.error("gcp {}: {}".format(url_key, ex))
-
-    def get(self, url_key):
-        """
-        Download content from a GCS bucket as a string
-
-        :param url_key: URL response to cache 
-        :type url_key: str
-        """
-        try:
-            content = self.bucket.get_blob(url_key).download_as_string(
-                                                     timeout=self.timeout)
-        except NotFound as ex:
-            logging.error("gcp {}: {}".format(url_key, ex))
-        return json.loads(content)
-
-    def set(self, url_key, content):
-        """
-        Upload a string or file-like object contents to GCS bucket
-
-        :param url_key: URL response to cache 
-        :type url_key: str
-        """
-        self._upload(url_key, content)
+                                  timeout=self.timeout)
