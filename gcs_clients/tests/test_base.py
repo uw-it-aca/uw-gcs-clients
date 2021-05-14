@@ -72,9 +72,9 @@ class TestGCSBucketClient(TestCase):
                    '"headers": "\'Content-Disposition\': \'attachment; "'
                    '"filename=\'fname.ext\'\'",'
                    '"data": {"key1": "value1", "key2": "value2"}}')
-        with patch.object(self.gcs_client.client._bucket.get_blob(),
+        with patch.object(self.gcs_client.client.bucket.get_blob(),
                           'upload_from_file') as mock_upload_from_file:
-            with patch.object(self.gcs_client.client._bucket.get_blob(),
+            with patch.object(self.gcs_client.client.bucket.get_blob(),
                               'upload_from_string') as mock_upload_from_string:
                 self.gcs_client.set("/api/v1/test", content)
         mock_upload_from_string.assert_called_once_with(
@@ -90,9 +90,9 @@ class TestGCSBucketClient(TestCase):
                    '"filename=\'fname.ext\'\'",'
                    '"data": {"key1": "value1", "key2": "value2"}}')
         content = StringIO(content)
-        with patch.object(self.gcs_client.client._bucket.get_blob(),
+        with patch.object(self.gcs_client.client.bucket.get_blob(),
                           'upload_from_file') as mock_upload_from_file:
-            with patch.object(self.gcs_client.client._bucket.get_blob(),
+            with patch.object(self.gcs_client.client.bucket.get_blob(),
                               'upload_from_string') as mock_upload_from_string:
                 self.gcs_client.set("/api/v1/test", content)
         mock_upload_from_file.assert_called_once_with(
@@ -100,3 +100,48 @@ class TestGCSBucketClient(TestCase):
             num_retries=self.gcs_client.client.num_retries,
             timeout=self.gcs_client.client.timeout)
         assert not mock_upload_from_string.called
+
+    @patch('google.cloud.storage.Bucket')
+    def test_get_unset_bucket(self, mock_storage_bucket):
+        # mock access of unset storage bucket
+        self.gcs_client.client._bucket = None
+        with patch.object(self.gcs_client.client.client,
+                          'get_bucket') as mock_get_bucket:
+            _ = self.gcs_client.bucket()
+        mock_get_bucket.assert_called_once_with(
+            self.gcs_client.client.bucket_name)
+
+    @patch('google.cloud.storage.Bucket')
+    def test_set_bucket(self, mock_storage_bucket):
+        # mock manually setting storage bucket
+        self.gcs_client.client.bucket = mock_storage_bucket()
+        self.assertEqual(self.gcs_client.client._bucket, mock_storage_bucket())
+
+    @patch('google.cloud.storage.Bucket')
+    def test_get_set_bucket(self, mock_storage_bucket):
+        self.gcs_client.client.bucket = mock_storage_bucket()  # set bucket
+        # mock accessing already set storage bucket
+        with patch.object(self.gcs_client.client.client,
+                          'get_bucket') as mock_get_bucket:
+            _ = self.gcs_client.bucket()
+        self.assertEqual(self.gcs_client.client.bucket, mock_storage_bucket())
+        assert not mock_get_bucket.called
+
+    @patch('google.cloud.storage.Client')
+    def test_get_unset_client(self, mock_storage_client):
+        # mock access of unset storage client
+        self.gcs_client.client._client = None
+        self.assertEqual(self.gcs_client.client.client, mock_storage_client())
+
+    @patch('google.cloud.storage.Client')
+    def test_set_client(self, mock_storage_client):
+        # mock manually setting storage client
+        self.gcs_client.client.client = mock_storage_client()
+        self.assertEqual(self.gcs_client.client._client, mock_storage_client())
+
+    @patch('google.cloud.storage.Client')
+    def test_get_set_client(self, mock_storage_client):
+        self.gcs_client.client.client = mock_storage_client()  # set client
+        # mock accessing already set storage client
+        self.assertEqual(self.gcs_client.client.client, mock_storage_client())
+        assert not mock_storage_client().called

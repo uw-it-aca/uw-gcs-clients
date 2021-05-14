@@ -78,7 +78,7 @@ class GCSBucketClient():
         """
         Retreive GCS client object
         """
-        if self.client is None:
+        if self._client is None:
             client = storage.Client()
             self._client = client
             return self._client
