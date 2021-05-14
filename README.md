@@ -1,7 +1,7 @@
 # uw-gcs-clients
 
-[![Build Status](https://github.com/uw-it-aca/uw-gcs-clients/workflows/tests/badge.svg?branch=main)](https://github.com/uw-it-aca/uw-gcs-clients/actions)
-[![Coverage Status](https://coveralls.io/repos/github/uw-it-aca/uw-gcs-clients/badge.svg?branch=main)](https://coveralls.io/github/uw-it-aca/uw-gcs-clients?branch=main)
+[![Build Status](https://github.com/uw-it-aca/uw-gcs-clients/workflows/tests/badge.svg?branch=master)](https://github.com/uw-it-aca/uw-gcs-clients/actions)
+[![Coverage Status](https://coveralls.io/repos/github/uw-it-aca/uw-gcs-clients/badge.svg?branch=master)](https://coveralls.io/github/uw-it-aca/uw-gcs-clients?branch=master)
 [![PyPi Version](https://img.shields.io/pypi/v/uw-gcs-clients.svg)](https://pypi.python.org/pypi/uw-gcs-clients)
 ![Python versions](https://img.shields.io/pypi/pyversions/uw-gcs-clients.svg)
 
