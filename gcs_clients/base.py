@@ -6,6 +6,7 @@ import logging
 import socket
 
 from commonconf import settings
+from datetime import datetime
 from google.cloud import storage
 from google.api_core.exceptions import GoogleAPIError
 from google.cloud.exceptions import NotFound
@@ -121,7 +122,7 @@ class GCSBucketClient():
             logging.error("gcp {}: {}".format(url_key, ex))
             raise
 
-    def get(self, url_key):
+    def get(self, url_key, expire=0):
         """
         Download content from a GCS bucket as a string
 
@@ -129,14 +130,20 @@ class GCSBucketClient():
         :type url_key: str
         """
         try:
-            content = self.bucket.get_blob(url_key).download_as_string(
-                                                     timeout=self.timeout)
+            blob = self.bucket.get_blob(url_key)
+            creation_time = blob.custom_time
+            if (round((datetime.utcnow() - creation_time).total_seconds(), 2)
+                <= expire
+                    or expire == 0):
+                content = blob.download_as_string(timeout=self.timeout)
+                return json.loads(content)
+            else:
+                return None  # expired content
         except NotFound as ex:
             logging.error("gcp {}: {}".format(url_key, ex))
             raise
-        return json.loads(content)
 
-    def set(self, url_key, content, expire=0):
+    def set(self, url_key, content):
         """
         Upload a string or file-like object contents to GCS bucket
 

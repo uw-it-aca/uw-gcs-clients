@@ -1,6 +1,7 @@
 # Copyright 2021 UW-IT, University of Washington
 # SPDX-License-Identifier: Apache-2.0
 
+from datetime import datetime, timedelta
 from unittest import TestCase
 from io import StringIO
 from gcs_clients import GCSClient
@@ -26,12 +27,12 @@ def get_default_client():
     gcs_client.client._bucket = MagicMock()
     gcs_client.client._bucket.get_blob = MagicMock(return_value=mock_blob)
     gcs_client.client._client = MagicMock()
-    return gcs_client
+    return mock_blob, gcs_client
 
 
 class TestGCSClient(TestCase):
     def setUp(self):
-        self.gcs_client = get_default_client()
+        self.mock_blob, self.gcs_client = get_default_client()
 
     def test_invalid_method(self):
         self.assertRaises(AttributeError, self.gcs_client.fake)
@@ -46,17 +47,41 @@ class TestGCSClient(TestCase):
 
 class TestGCSBucketClient(TestCase):
     def setUp(self):
-        self.gcs_client = get_default_client()
+        self.mock_blob, self.gcs_client = get_default_client()
 
     def test_get(self):
+        self.mock_blob.custom_time = \
+            datetime.utcnow() - timedelta(minutes=1)
         self.assertEqual(
-            self.gcs_client.get("/api/v1/test"),
+            self.gcs_client.get("/api/v1/test", expire=60.01),
             {
                 'status': 200,
                 'headers': "\'Content-Disposition\': \'attachment; "
                 "filename=\'fname.ext\'\'",
                 'data': {'key1': 'value1', 'key2': 'value2'}
             }
+        )
+        self.assertEqual(
+            self.gcs_client.get("/api/v1/test", expire=60),
+            {
+                'status': 200,
+                'headers': "\'Content-Disposition\': \'attachment; "
+                "filename=\'fname.ext\'\'",
+                'data': {'key1': 'value1', 'key2': 'value2'}
+            }
+        )
+        self.assertEqual(
+            self.gcs_client.get("/api/v1/test", expire=0),
+            {
+                'status': 200,
+                'headers': "\'Content-Disposition\': \'attachment; "
+                "filename=\'fname.ext\'\'",
+                'data': {'key1': 'value1', 'key2': 'value2'}
+            }
+        )
+        self.assertEqual(
+            self.gcs_client.get("/api/v1/test", expire=59.99),
+            None
         )
 
     def test_delete(self):

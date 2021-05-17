@@ -31,7 +31,7 @@ class RestclientGCSClient(GCSClient):
     def getCache(self, service, url, headers=None):
         expire = self.get_cache_expiration_time(service, url)
         if expire is not None:
-            data = self.get(self._create_key(service, url))
+            data = self.get(self._create_key(service, url), expire=expire)
             if data:
                 return {"response": CachedHTTPResponse(**data)}
 
@@ -45,7 +45,7 @@ class RestclientGCSClient(GCSClient):
             data = self._format_data(response)
             try:
                 # Bypass the shim client to log the original URL if needed.
-                self.client.set(key, data, expire=expire)
+                self.client.set(key, data)
             except (GoogleAPIError, ConnectionError) as ex:
                 logging.error("gcs set: {}, url: {}".format(ex, url))
 
