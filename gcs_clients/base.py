@@ -136,7 +136,7 @@ class GCSBucketClient():
             raise
         return json.loads(content)
 
-    def set(self, url_key, content):
+    def set(self, url_key, content, expire=0):
         """
         Upload a string or file-like object contents to GCS bucket
 

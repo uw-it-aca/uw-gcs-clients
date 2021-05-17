@@ -5,6 +5,7 @@ from unittest import TestCase
 from commonconf import override_settings
 from gcs_clients import RestclientGCSClient
 from gcs_clients.restclient import CachedHTTPResponse
+from mock import MagicMock, patch
 
 
 class MockClientCachePolicy(RestclientGCSClient):
@@ -74,7 +75,42 @@ class TestCachePolicy(TestCase):
 
 class TestRestclientGCSClient(TestCase):
     def setUp(self):
-        self.client = RestclientGCSClient()
+        # mock client
+        rest_client = RestclientGCSClient()
+        rest_client.client._bucket = MagicMock()
+        rest_client.client._client = MagicMock()
+        self.client = rest_client
+
+    @patch('gcs_clients.RestclientGCSClient._create_key',
+           return_value="abc-/api/v1/test")
+    @patch('gcs_clients.GCSBucketClient.get',
+           return_value={
+                'status': 200,
+                'headers': "\'Content-Disposition\': \'attachment; "
+                "filename=\'fname.ext\'\'",
+                'data': {'key1': 'value1', 'key2': 'value2'}
+            })
+    def test_getCache(self, mock_get, mock_create_key):
+        response = self.client.getCache("abc", "/api/v1/test")
+        mock_create_key.assert_called_once_with("abc", "/api/v1/test")
+        mock_get.assert_called_once_with("abc-/api/v1/test")
+        self.assertIn("response", response)
+        self.assertEqual(CachedHTTPResponse, type(response["response"]))
+
+    @patch('gcs_clients.GCSBucketClient.delete')
+    @patch('gcs_clients.RestclientGCSClient._create_key',
+           return_value="abc-/api/v1/test")
+    def test_deleteCache(self, mock_create_key, mock_delete):
+        self.client.deleteCache("abc", "/api/v1/test")
+        mock_create_key.assert_called_once_with("abc", "/api/v1/test")
+        mock_delete.assert_called_once_with("abc-/api/v1/test")
+
+    @patch('gcs_clients.RestclientGCSClient._create_key',
+           return_value="abc-/api/v1/test")
+    def test_updateCache(self, mock_create_key):
+        self.client.updateCache(
+            "abc", "/api/v1/test", MagicMock())
+        mock_create_key.assert_called_once_with("abc", "/api/v1/test")
 
     def test_create_key(self):
         self.assertEqual(self.client._create_key("abc", "/api/v1/test"),
