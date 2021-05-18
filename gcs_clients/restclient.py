@@ -45,7 +45,7 @@ class RestclientGCSClient(GCSClient):
             data = self._format_data(response)
             try:
                 # Bypass the shim client to log the original URL if needed.
-                self.client.set(key, data)
+                self.client.set(key, data, expire=expire)
             except (GoogleAPIError, ConnectionError) as ex:
                 logging.error("gcs set: {}, url: {}".format(ex, url))
 

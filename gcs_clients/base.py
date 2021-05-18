@@ -16,7 +16,8 @@ from threading import local
 
 class GCSClient():
     """
-    A settings-based wrapper around GCSBucketClient client
+    A settings-based wrapper around GCSBucketClient client. Ensures that every
+    request is processed by the same cache client.
     """
 
     def __init__(self):
@@ -43,6 +44,10 @@ class GCSClient():
         return self._local.client
 
     def __client__(self):
+        """
+        Create a new client object instance with settings mapped from
+        environment settings
+        """
         return GCSBucketClient(
             getattr(settings, "GCS_BUCKET_NAME", None),
             replace=getattr(settings, "GCS_REPLACE", False),
@@ -94,9 +99,6 @@ class GCSBucketClient():
     def bucket(self):
         """
         Retreive GCS bucket object
-
-        :param bucket_name: Name of the bucket to read/write from
-        :type bucket_name: str
         """
         if self._bucket is None:
             bucket = self.client.get_bucket(self.bucket_name)
@@ -128,6 +130,9 @@ class GCSBucketClient():
 
         :param url_key: URL response to cache
         :type url_key: str
+        :param expire: Number of seconds until the item is expired from the
+            cache, or 0 for no expiry (the default).
+        :type expire: int (optional, default 0)
         """
         try:
             blob = self.bucket.get_blob(url_key)
@@ -143,21 +148,27 @@ class GCSBucketClient():
             logging.error("gcp {}: {}".format(url_key, ex))
             raise
 
-    def set(self, url_key, content):
+    def set(self, url_key, content, expire=0):
         """
         Upload a string or file-like object contents to GCS bucket
 
         :param url_key: URL response to cache
         :type url_key: str
+        :param content: Content to cache
+        :type content: str or file object
+        :param expire: If None, don't update the cache otherwise upload to the
+            cache, the default
+        :type expire: int or None (optional, default update)
         """
-        blob = None
-        if self.replace is False:
-            blob = self.bucket.get_blob(url_key)
-        if not blob:
-            blob = self.bucket.blob(url_key)
-        if isinstance(content, str):
-            blob.upload_from_string(content, num_retries=self.num_retries,
-                                    timeout=self.timeout)
-        elif isinstance(content, StringIO):
-            blob.upload_from_file(content, num_retries=self.num_retries,
-                                  timeout=self.timeout)
+        if expire is not None:
+            blob = None
+            if self.replace is False:
+                blob = self.bucket.get_blob(url_key)
+            if not blob:
+                blob = self.bucket.blob(url_key)
+            if isinstance(content, str):
+                blob.upload_from_string(content, num_retries=self.num_retries,
+                                        timeout=self.timeout)
+            elif isinstance(content, StringIO):
+                blob.upload_from_file(content, num_retries=self.num_retries,
+                                      timeout=self.timeout)
