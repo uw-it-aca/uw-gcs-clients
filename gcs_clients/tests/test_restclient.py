@@ -1,6 +1,7 @@
 # Copyright 2021 UW-IT, University of Washington
 # SPDX-License-Identifier: Apache-2.0
 
+from datetime import datetime, timedelta
 from unittest import TestCase
 from commonconf import override_settings
 from gcs_clients import RestclientGCSClient
@@ -75,9 +76,13 @@ class TestCachePolicy(TestCase):
 
 class TestRestclientGCSClient(TestCase):
     def setUp(self):
+        # mock blob
+        mock_blob = MagicMock()
+        self.mock_blob = mock_blob
         # mock client
         rest_client = RestclientGCSClient()
         rest_client.client._bucket = MagicMock()
+        rest_client.client._bucket.get_blob = MagicMock(return_value=mock_blob)
         rest_client.client._client = MagicMock()
         self.client = rest_client
 
@@ -93,7 +98,30 @@ class TestRestclientGCSClient(TestCase):
     def test_getCache(self, mock_get, mock_create_key):
         response = self.client.getCache("abc", "/api/v1/test")
         mock_create_key.assert_called_once_with("abc", "/api/v1/test")
-        mock_get.assert_called_once_with("abc-/api/v1/test")
+        mock_get.assert_called_once_with("abc-/api/v1/test", expire=0)
+        self.assertIn("response", response)
+        self.assertEqual(CachedHTTPResponse, type(response["response"]))
+
+    @patch('gcs_clients.RestclientGCSClient._create_key',
+           return_value="abc-/api/v1/test")
+    def test_getCache_expired(self, mock_create_key):
+        self.mock_blob.custom_time = \
+            datetime.utcnow() - timedelta(seconds=11)
+        self.mock_blob.download_as_string = MagicMock(
+            return_value='{'
+            '"status": 200,'
+            '"headers": "\'Content-Disposition\': \'attachment; '
+            'filename=\'fname.ext\'\'",'
+            '"data": {"key1": "value1", "key2": "value2"}'
+            '}')
+        # expired
+        self.client.get_cache_expiration_time = MagicMock(return_value=10)
+        response = self.client.getCache("abc", "/api/v1/test")
+        self.assertEqual(response, None)
+        # not expired
+        self.client.get_cache_expiration_time = MagicMock(return_value=30)
+        response = self.client.getCache("abc", "/api/v1/test")
+        mock_create_key.assert_called_with("abc", "/api/v1/test")
         self.assertIn("response", response)
         self.assertEqual(CachedHTTPResponse, type(response["response"]))
 

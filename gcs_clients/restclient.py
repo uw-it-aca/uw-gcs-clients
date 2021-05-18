@@ -31,7 +31,7 @@ class RestclientGCSClient(GCSClient):
     def getCache(self, service, url, headers=None):
         expire = self.get_cache_expiration_time(service, url)
         if expire is not None:
-            data = self.get(self._create_key(service, url))
+            data = self.get(self._create_key(service, url), expire=expire)
             if data:
                 return {"response": CachedHTTPResponse(**data)}
 

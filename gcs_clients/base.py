@@ -6,6 +6,7 @@ import logging
 import socket
 
 from commonconf import settings
+from datetime import datetime
 from google.cloud import storage
 from google.api_core.exceptions import GoogleAPIError
 from google.cloud.exceptions import NotFound
@@ -15,7 +16,8 @@ from threading import local
 
 class GCSClient():
     """
-    A settings-based wrapper around GCSBucketClient client
+    A settings-based wrapper around GCSBucketClient client. Ensures that every
+    request is processed by the same cache client.
     """
 
     def __init__(self):
@@ -42,6 +44,10 @@ class GCSClient():
         return self._local.client
 
     def __client__(self):
+        """
+        Create a new client object instance with settings mapped from
+        environment settings
+        """
         return GCSBucketClient(
             getattr(settings, "GCS_BUCKET_NAME", None),
             replace=getattr(settings, "GCS_REPLACE", False),
@@ -93,9 +99,6 @@ class GCSBucketClient():
     def bucket(self):
         """
         Retreive GCS bucket object
-
-        :param bucket_name: Name of the bucket to read/write from
-        :type bucket_name: str
         """
         if self._bucket is None:
             bucket = self.client.get_bucket(self.bucket_name)
@@ -121,20 +124,29 @@ class GCSBucketClient():
             logging.error("gcp {}: {}".format(url_key, ex))
             raise
 
-    def get(self, url_key):
+    def get(self, url_key, expire=0):
         """
         Download content from a GCS bucket as a string
 
         :param url_key: URL response to cache
         :type url_key: str
+        :param expire: Number of seconds until the item is expired from the
+            cache, or 0 for no expiry (the default).
+        :type expire: int (optional, default 0)
         """
         try:
-            content = self.bucket.get_blob(url_key).download_as_string(
-                                                     timeout=self.timeout)
+            blob = self.bucket.get_blob(url_key)
+            creation_time = blob.custom_time
+            if (round((datetime.utcnow() - creation_time).total_seconds(), 2)
+                <= expire
+                    or expire == 0):
+                content = blob.download_as_string(timeout=self.timeout)
+                return json.loads(content)
+            else:
+                return None  # expired content
         except NotFound as ex:
             logging.error("gcp {}: {}".format(url_key, ex))
             raise
-        return json.loads(content)
 
     def set(self, url_key, content, expire=0):
         """
@@ -142,15 +154,21 @@ class GCSBucketClient():
 
         :param url_key: URL response to cache
         :type url_key: str
+        :param content: Content to cache
+        :type content: str or file object
+        :param expire: If None, don't update the cache otherwise upload to the
+            cache, the default
+        :type expire: int or None (optional, default update)
         """
-        blob = None
-        if self.replace is False:
-            blob = self.bucket.get_blob(url_key)
-        if not blob:
-            blob = self.bucket.blob(url_key)
-        if isinstance(content, str):
-            blob.upload_from_string(content, num_retries=self.num_retries,
-                                    timeout=self.timeout)
-        elif isinstance(content, StringIO):
-            blob.upload_from_file(content, num_retries=self.num_retries,
-                                  timeout=self.timeout)
+        if expire is not None:
+            blob = None
+            if self.replace is False:
+                blob = self.bucket.get_blob(url_key)
+            if not blob:
+                blob = self.bucket.blob(url_key)
+            if isinstance(content, str):
+                blob.upload_from_string(content, num_retries=self.num_retries,
+                                        timeout=self.timeout)
+            elif isinstance(content, StringIO):
+                blob.upload_from_file(content, num_retries=self.num_retries,
+                                      timeout=self.timeout)
