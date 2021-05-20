@@ -87,7 +87,7 @@ class TestRestclientGCSClient(TestCase):
         self.client = rest_client
 
     @patch('gcs_clients.RestclientGCSClient._create_key',
-           return_value="abc-/api/v1/test")
+           return_value="abc/api/v1/test")
     @patch('gcs_clients.GCSBucketClient.get',
            return_value={
                 'status': 200,
@@ -98,12 +98,12 @@ class TestRestclientGCSClient(TestCase):
     def test_getCache(self, mock_get, mock_create_key):
         response = self.client.getCache("abc", "/api/v1/test")
         mock_create_key.assert_called_once_with("abc", "/api/v1/test")
-        mock_get.assert_called_once_with("abc-/api/v1/test", expire=0)
+        mock_get.assert_called_once_with("abc/api/v1/test", expire=0)
         self.assertIn("response", response)
         self.assertEqual(CachedHTTPResponse, type(response["response"]))
 
     @patch('gcs_clients.RestclientGCSClient._create_key',
-           return_value="abc-/api/v1/test")
+           return_value="abc/api/v1/test")
     def test_getCache_expired(self, mock_create_key):
         self.mock_blob.custom_time = \
             datetime.utcnow() - timedelta(seconds=11)
@@ -127,37 +127,52 @@ class TestRestclientGCSClient(TestCase):
 
     @patch('gcs_clients.GCSBucketClient.delete')
     @patch('gcs_clients.RestclientGCSClient._create_key',
-           return_value="abc-/api/v1/test")
+           return_value="abc/api/v1/test")
     def test_deleteCache(self, mock_create_key, mock_delete):
         self.client.deleteCache("abc", "/api/v1/test")
         mock_create_key.assert_called_once_with("abc", "/api/v1/test")
-        mock_delete.assert_called_once_with("abc-/api/v1/test")
+        mock_delete.assert_called_once_with("abc/api/v1/test")
 
+    @patch('gcs_clients.GCSBucketClient.set')
     @patch('gcs_clients.RestclientGCSClient._create_key',
-           return_value="abc-/api/v1/test")
-    def test_updateCache(self, mock_create_key):
-        self.client.updateCache(
-            "abc", "/api/v1/test", MagicMock())
-        mock_create_key.assert_called_once_with("abc", "/api/v1/test")
+           return_value="abc/api/v1/test")
+    def test_updateCache(self, mock_create_key, mock_set):
+        mock_data = MagicMock()
+        with patch.object(self.client,
+                          '_format_data') as mock_format_data:
+            mock_format_data.return_value = mock_data
+            self.client.updateCache(
+                "abc", "/api/v1/test", mock_data)
+            mock_create_key.assert_called_once_with("abc", "/api/v1/test")
+            mock_set.assert_called_once_with("abc/api/v1/test", mock_data,
+                                             expire=0)
 
     def test_create_key(self):
         self.assertEqual(self.client._create_key("abc", "/api/v1/test"),
-                         "abc-/api/v1/test")
+                         "abc/api/v1/test")
         long_url = "/api/v1/{}".format("x" * 250)
         self.assertEqual(self.client._create_key("abc", long_url),
-                         "abc-{}".format(long_url))
+                         "abc{}".format(long_url))
         self.assertEqual(
             self.client._create_key("xyz", "/api/v1/test?p1=true&p2=10"),
-            "xyz-/api/v1/test?p1=true&p2=10")
+            "xyz/api/v1/test?p1=true&p2=10")
 
     def test_format_data(self):
         self.test_response = CachedHTTPResponse(
             status=200,
-            data={"a": 1, "b": b"test", "c": []},
+            data=b'{\n "a": 1, "b": "test", "c": []\n}',
             headers={"Content-Disposition": "attachment; filename='fname.ext'"}
         )
-        self.assertEqual(self.client._format_data(self.test_response), {
-            "status": self.test_response.status,
-            "headers": self.test_response.headers,
-            "data": self.test_response.data
-        })
+        formatted_response = self.client._format_data(self.test_response)
+        self.assertEqual(formatted_response, (
+            '{\n'
+            ' "status": 200,\n'
+            ' "headers": {\n'
+            '  "Content-Disposition": "attachment; filename=\'fname.ext\'"\n'
+            ' },\n'
+            ' "data": {\n'
+            '  "a": 1,\n'
+            '  "b": "test",\n'
+            '  "c": []\n'
+            ' }\n'
+            '}'))

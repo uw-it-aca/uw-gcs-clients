@@ -81,8 +81,9 @@ class RestclientGCSClient(GCSClient):
         if response.headers is not None:
             for header in response.headers:
                 headers[header] = response.getheader(header)
+        response_data = json.loads(response.data)
         return json.dumps({
-            "status": str(response.status),
+            "status": int(response.status),
             "headers": headers,
-            "data": json.loads(response.data)
+            "data": response_data
         }, indent=1)
