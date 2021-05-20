@@ -6,11 +6,11 @@ import logging
 import socket
 
 from commonconf import settings
-from datetime import datetime
+from datetime import datetime, timezone
 from google.cloud import storage
 from google.api_core.exceptions import GoogleAPIError
 from google.cloud.exceptions import NotFound
-from io import StringIO
+from io import IOBase
 from threading import local
 
 
@@ -136,14 +136,19 @@ class GCSBucketClient():
         """
         try:
             blob = self.bucket.get_blob(url_key)
-            creation_time = blob.custom_time
-            if (round((datetime.utcnow() - creation_time).total_seconds(), 2)
-                <= expire
-                    or expire == 0):
-                content = blob.download_as_string(timeout=self.timeout)
-                return json.loads(content)
-            else:
-                return None  # expired content
+            if blob:
+                creation_time = blob.custom_time
+                if creation_time:
+                    creation_time = creation_time.replace(tzinfo=timezone.utc)
+                    time_since_creation = \
+                        (datetime.now(timezone.utc) - creation_time) \
+                        .total_seconds()
+                    if (round(time_since_creation, 2) <=
+                            expire or expire == 0):
+                        content = blob.download_as_string(timeout=self.timeout)
+                        return json.loads(content)
+                    else:
+                        return None  # expired content
         except NotFound as ex:
             logging.error("gcp {}: {}".format(url_key, ex))
             raise
@@ -166,9 +171,12 @@ class GCSBucketClient():
                 blob = self.bucket.get_blob(url_key)
             if not blob:
                 blob = self.bucket.blob(url_key)
-            if isinstance(content, str):
-                blob.upload_from_string(content, num_retries=self.num_retries,
-                                        timeout=self.timeout)
-            elif isinstance(content, StringIO):
-                blob.upload_from_file(content, num_retries=self.num_retries,
+            blob.custom_time = datetime.now(timezone.utc)
+            if isinstance(content, IOBase):
+                blob.upload_from_file(content,
+                                      num_retries=self.num_retries,
                                       timeout=self.timeout)
+            else:
+                blob.upload_from_string(str(content),
+                                        num_retries=self.num_retries,
+                                        timeout=self.timeout)

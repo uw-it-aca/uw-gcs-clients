@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import json
 from commonconf import settings
 from gcs_clients import GCSClient
 from google.api_core.exceptions import GoogleAPIError
@@ -28,6 +29,7 @@ class CachedHTTPResponse():
 
 
 class RestclientGCSClient(GCSClient):
+
     def getCache(self, service, url, headers=None):
         expire = self.get_cache_expiration_time(service, url)
         if expire is not None:
@@ -70,7 +72,7 @@ class RestclientGCSClient(GCSClient):
             url_key = "?".join([path, query])
         else:
             url_key = path
-        return "{}-{}".format(service, url_key)
+        return "{}{}".format(service, url_key)
 
     @staticmethod
     def _format_data(response):
@@ -79,9 +81,9 @@ class RestclientGCSClient(GCSClient):
         if response.headers is not None:
             for header in response.headers:
                 headers[header] = response.getheader(header)
-
-        return {
-            "status": response.status,
+        response_data = json.loads(response.data)
+        return json.dumps({
+            "status": int(response.status),
             "headers": headers,
-            "data": response.data
-        }
+            "data": response_data
+        }, indent=1)
