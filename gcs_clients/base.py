@@ -143,7 +143,8 @@ class GCSBucketClient():
                     time_since_creation = \
                         (datetime.now(timezone.utc) - creation_time) \
                         .total_seconds()
-                    if (round(time_since_creation, 2) <= expire or expire == 0):
+                    if (round(time_since_creation, 2) <=
+                            expire or expire == 0):
                         content = blob.download_as_string(timeout=self.timeout)
                         return json.loads(content)
                     else:
