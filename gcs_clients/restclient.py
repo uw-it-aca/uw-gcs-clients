@@ -1,6 +1,7 @@
 # Copyright 2021 UW-IT, University of Washington
 # SPDX-License-Identifier: Apache-2.0
 
+import base64
 import logging
 import json
 from commonconf import settings
@@ -17,6 +18,7 @@ class CachedHTTPResponse():
         self.headers = kwargs.get("headers", {})
         self.status = kwargs.get("status")
         self.data = kwargs.get("data")
+        self.data = json.dumps(kwargs.get("data"))
 
     def read(self):
         return self.data
@@ -35,7 +37,8 @@ class RestclientGCSClient(GCSClient):
         if expire is not None:
             data = self.get(self._create_key(service, url), expire=expire)
             if data:
-                return {"response": CachedHTTPResponse(**data)}
+                parsed_data = json.loads(data)
+                return {"response": CachedHTTPResponse(**parsed_data)}
 
     def deleteCache(self, service, url):
         return self.delete(self._create_key(service, url))
@@ -85,5 +88,6 @@ class RestclientGCSClient(GCSClient):
         return json.dumps({
             "status": int(response.status),
             "headers": headers,
-            "data": response_data
+            "data":
+            base64.b64encode(response.data).decode("ascii")
         }, indent=1)

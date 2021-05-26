@@ -146,7 +146,7 @@ class GCSBucketClient():
                     if (round(time_since_creation, 2) <=
                             expire or expire == 0):
                         content = blob.download_as_string(timeout=self.timeout)
-                        return json.loads(content)
+                        return content
                     else:
                         return None  # expired content
         except NotFound as ex:
