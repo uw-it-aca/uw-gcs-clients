@@ -1,7 +1,6 @@
 # Copyright 2021 UW-IT, University of Washington
 # SPDX-License-Identifier: Apache-2.0
 
-import base64
 import logging
 import json
 from commonconf import settings
@@ -17,8 +16,19 @@ class CachedHTTPResponse():
     def __init__(self, **kwargs):
         self.headers = kwargs.get("headers", {})
         self.status = kwargs.get("status")
-        self.data = kwargs.get("data")
-        self.data = json.dumps(kwargs.get("data"))
+        self._data = kwargs.get("data")
+
+    # getter method
+    @property
+    def data(self):
+        # serialize the data object so that it can be processed by
+        # restclient core
+        return json.dumps(self._data)
+
+    # setter method
+    @data.setter
+    def data(self, d):
+        self._data = d
 
     def read(self):
         return self.data
@@ -84,10 +94,8 @@ class RestclientGCSClient(GCSClient):
         if response.headers is not None:
             for header in response.headers:
                 headers[header] = response.getheader(header)
-        response_data = json.loads(response.data)
-        return json.dumps({
-            "status": int(response.status),
+        return {
+            "status": response.status,
             "headers": headers,
-            "data":
-            base64.b64encode(response.data).decode("ascii")
-        }, indent=1)
+            "data": response.data
+        }

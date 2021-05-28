@@ -1,6 +1,7 @@
 # Copyright 2021 UW-IT, University of Washington
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 from datetime import datetime, timedelta
 from unittest import TestCase
 from commonconf import override_settings
@@ -29,9 +30,9 @@ class TestCachedHTTPResponse(TestCase):
             "Content-Disposition": "attachment; filename='name.ext'"
         }
         self.test_data = {
-            "a": None, "b": b"test", "c": [(1, 2), (3, 4)]
+            "a": None, "b": "test", "c": [(1, 2), (3, 4)]
         }
-        self.test_status = 201
+        self.test_status = 200
         self.response = CachedHTTPResponse(
             data=self.test_data,
             headers=self.test_headers,
@@ -39,9 +40,9 @@ class TestCachedHTTPResponse(TestCase):
 
     def test_read(self):
         empty = CachedHTTPResponse()
-        self.assertEqual(empty.read(), None)
+        self.assertEqual(empty.read(), 'null')
 
-        self.assertEqual(self.response.read(), self.test_data)
+        self.assertEqual(self.response.read(), json.dumps(self.test_data))
 
     def test_getheader(self):
         empty = CachedHTTPResponse()
@@ -89,12 +90,11 @@ class TestRestclientGCSClient(TestCase):
     @patch('gcs_clients.RestclientGCSClient._create_key',
            return_value="abc/api/v1/test")
     @patch('gcs_clients.GCSBucketClient.get',
-           return_value={
-                'status': 200,
-                'headers': "\'Content-Disposition\': \'attachment; "
-                "filename=\'fname.ext\'\'",
-                'data': {'key1': 'value1', 'key2': 'value2'}
-            })
+           return_value=(
+            '{"status": 200,'
+            '"headers": "\'Content-Disposition\': '
+            '\'attachment; filename=\'fname.ext\'\'",'
+            '"data": {"key1": "value1", "key2": "value2"}}'))
     def test_getCache(self, mock_get, mock_create_key):
         response = self.client.getCache("abc", "/api/v1/test")
         mock_create_key.assert_called_once_with("abc", "/api/v1/test")
@@ -160,19 +160,15 @@ class TestRestclientGCSClient(TestCase):
     def test_format_data(self):
         self.test_response = CachedHTTPResponse(
             status=200,
-            data=b'{\n "a": 1, "b": "test", "c": []\n}',
+            data={"a": 1, "b": "test", "c": []},
             headers={"Content-Disposition": "attachment; filename='fname.ext'"}
         )
         formatted_response = self.client._format_data(self.test_response)
         self.assertEqual(formatted_response, (
-            '{\n'
-            ' "status": 200,\n'
-            ' "headers": {\n'
-            '  "Content-Disposition": "attachment; filename=\'fname.ext\'"\n'
-            ' },\n'
-            ' "data": {\n'
-            '  "a": 1,\n'
-            '  "b": "test",\n'
-            '  "c": []\n'
-            ' }\n'
-            '}'))
+            {
+              "status": 200,
+              "headers": {
+                "Content-Disposition": "attachment; filename=\'fname.ext\'"
+              },
+              "data": '{"a": 1, "b": "test", "c": []}'
+            }))

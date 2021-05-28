@@ -54,30 +54,24 @@ class TestGCSBucketClient(TestCase):
             datetime.utcnow() - timedelta(minutes=1)
         self.assertEqual(
             self.gcs_client.get("/api/v1/test", expire=60.01),
-            {
-                'status': 200,
-                'headers': "\'Content-Disposition\': \'attachment; "
-                "filename=\'fname.ext\'\'",
-                'data': {'key1': 'value1', 'key2': 'value2'}
-            }
+            '{"status": 200,'
+            '"headers": "\'Content-Disposition\': '
+            '\'attachment; filename=\'fname.ext\'\'",'
+            '"data": {"key1": "value1", "key2": "value2"}}'
         )
         self.assertEqual(
             self.gcs_client.get("/api/v1/test", expire=60),
-            {
-                'status': 200,
-                'headers': "\'Content-Disposition\': \'attachment; "
-                "filename=\'fname.ext\'\'",
-                'data': {'key1': 'value1', 'key2': 'value2'}
-            }
+            '{"status": 200,'
+            '"headers": "\'Content-Disposition\': '
+            '\'attachment; filename=\'fname.ext\'\'",'
+            '"data": {"key1": "value1", "key2": "value2"}}'
         )
         self.assertEqual(
             self.gcs_client.get("/api/v1/test", expire=0),
-            {
-                'status': 200,
-                'headers': "\'Content-Disposition\': \'attachment; "
-                "filename=\'fname.ext\'\'",
-                'data': {'key1': 'value1', 'key2': 'value2'}
-            }
+            '{"status": 200,'
+            '"headers": "\'Content-Disposition\': '
+            '\'attachment; filename=\'fname.ext\'\'",'
+            '"data": {"key1": "value1", "key2": "value2"}}'
         )
         self.assertEqual(
             self.gcs_client.get("/api/v1/test", expire=59.99),
