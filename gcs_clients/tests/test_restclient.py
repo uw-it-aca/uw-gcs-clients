@@ -40,9 +40,9 @@ class TestCachedHTTPResponse(TestCase):
 
     def test_read(self):
         empty = CachedHTTPResponse()
-        self.assertEqual(empty.read(), 'null')
+        self.assertEqual(empty.read(), None)
 
-        self.assertEqual(self.response.read(), json.dumps(self.test_data))
+        self.assertEqual(self.response.read(), self.test_data)
 
     def test_getheader(self):
         empty = CachedHTTPResponse()
@@ -160,15 +160,15 @@ class TestRestclientGCSClient(TestCase):
     def test_format_data(self):
         self.test_response = CachedHTTPResponse(
             status=200,
-            data={"a": 1, "b": "test", "c": []},
+            data=b'{"a": 1, "b": "test", "c": []}',
             headers={"Content-Disposition": "attachment; filename='fname.ext'"}
         )
         formatted_response = self.client._format_data(self.test_response)
-        self.assertEqual(formatted_response, (
-            {
-              "status": 200,
-              "headers": {
-                "Content-Disposition": "attachment; filename=\'fname.ext\'"
-              },
-              "data": '{"a": 1, "b": "test", "c": []}'
-            }))
+        self.assertEqual(
+            formatted_response,
+            json.dumps(
+                {"status": 200,
+                 "headers": {"Content-Disposition": "attachment; "
+                             "filename=\'fname.ext\'"},
+                 "data": "{\"a\": 1, \"b\": \"test\", \"c\": []}"}
+            ))
