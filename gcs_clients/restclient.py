@@ -16,19 +16,7 @@ class CachedHTTPResponse():
     def __init__(self, **kwargs):
         self.headers = kwargs.get("headers", {})
         self.status = kwargs.get("status")
-        self._data = kwargs.get("data")
-
-    # getter method
-    @property
-    def data(self):
-        # serialize the data object so that it can be processed by
-        # restclient core
-        return json.dumps(self._data)
-
-    # setter method
-    @data.setter
-    def data(self, d):
-        self._data = d
+        self.data = kwargs.get("data")
 
     def read(self):
         return self.data
@@ -94,8 +82,8 @@ class RestclientGCSClient(GCSClient):
         if response.headers is not None:
             for header in response.headers:
                 headers[header] = response.getheader(header)
-        return {
+        return json.dumps({
             "status": response.status,
             "headers": headers,
-            "data": response.data
-        }
+            "data": response.data.decode('utf-8')
+        })
