@@ -97,7 +97,8 @@ class TestRestclientGCSClient(TestCase):
             '"data": {"key1": "value1", "key2": "value2"}}'))
     def test_getCache(self, mock_get, mock_create_key):
         response = self.client.getCache("abc", "/api/v1/test")
-        mock_create_key.assert_called_once_with("abc", "/api/v1/test")
+        mock_create_key.assert_called_once_with(
+            "abc", "/api/v1/test", base_path='')
         mock_get.assert_called_once_with("abc/api/v1/test", expire=0)
         self.assertIn("response", response)
         self.assertEqual(CachedHTTPResponse, type(response["response"]))
@@ -121,7 +122,8 @@ class TestRestclientGCSClient(TestCase):
         # not expired
         self.client.get_cache_expiration_time = MagicMock(return_value=30)
         response = self.client.getCache("abc", "/api/v1/test")
-        mock_create_key.assert_called_with("abc", "/api/v1/test")
+        mock_create_key.assert_called_with(
+            "abc", "/api/v1/test", base_path='')
         self.assertIn("response", response)
         self.assertEqual(CachedHTTPResponse, type(response["response"]))
 
@@ -130,7 +132,8 @@ class TestRestclientGCSClient(TestCase):
            return_value="abc/api/v1/test")
     def test_deleteCache(self, mock_create_key, mock_delete):
         self.client.deleteCache("abc", "/api/v1/test")
-        mock_create_key.assert_called_once_with("abc", "/api/v1/test")
+        mock_create_key.assert_called_once_with(
+            "abc", "/api/v1/test", base_path='')
         mock_delete.assert_called_once_with("abc/api/v1/test")
 
     @patch('gcs_clients.GCSBucketClient.set')
@@ -143,7 +146,8 @@ class TestRestclientGCSClient(TestCase):
             mock_format_data.return_value = mock_data
             self.client.updateCache(
                 "abc", "/api/v1/test", mock_data)
-            mock_create_key.assert_called_once_with("abc", "/api/v1/test")
+            mock_create_key.assert_called_once_with(
+                "abc", "/api/v1/test", base_path='')
             mock_set.assert_called_once_with("abc/api/v1/test", mock_data,
                                              expire=0)
 
@@ -151,11 +155,25 @@ class TestRestclientGCSClient(TestCase):
         self.assertEqual(self.client._create_key("abc", "/api/v1/test"),
                          "abc/api/v1/test")
         long_url = "/api/v1/{}".format("x" * 250)
-        self.assertEqual(self.client._create_key("abc", long_url),
+        self.assertEqual(self.client._create_key(
+            "abc", long_url, base_path=''),
                          "abc{}".format(long_url))
         self.assertEqual(
-            self.client._create_key("xyz", "/api/v1/test?p1=true&p2=10"),
+            self.client._create_key(
+                "xyz", "/api/v1/test?p1=true&p2=10", base_path=''),
             "xyz/api/v1/test?p1=true&p2=10")
+        self.assertEqual(self.client._create_key(
+            "abc", long_url, base_path='/2021-spring/9/'),
+                         "2021-spring/9/abc{}".format(long_url))
+        self.assertEqual(self.client._create_key(
+            "abc", long_url, base_path='2021-spring/9/'),
+                         "2021-spring/9/abc{}".format(long_url))
+        self.assertEqual(self.client._create_key(
+            "abc", long_url, base_path='/2021-spring/9'),
+                         "2021-spring/9/abc{}".format(long_url))
+        self.assertEqual(self.client._create_key(
+            "abc", long_url, base_path='2021-spring/9'),
+                         "2021-spring/9/abc{}".format(long_url))
 
     def test_format_data(self):
         self.test_response = CachedHTTPResponse(

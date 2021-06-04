@@ -3,6 +3,7 @@
 
 import logging
 import json
+import os
 from commonconf import settings
 from gcs_clients import GCSClient
 from google.api_core.exceptions import GoogleAPIError
@@ -33,18 +34,22 @@ class RestclientGCSClient(GCSClient):
     def getCache(self, service, url, headers=None):
         expire = self.get_cache_expiration_time(service, url)
         if expire is not None:
-            data = self.get(self._create_key(service, url), expire=expire)
+            data = self.get(self._create_key(service, url,
+                                             base_path=self.get_base_path()),
+                            expire=expire,)
             if data:
                 parsed_data = json.loads(data)
                 return {"response": CachedHTTPResponse(**parsed_data)}
 
     def deleteCache(self, service, url):
-        return self.delete(self._create_key(service, url))
+        return self.delete(self._create_key(service, url,
+                                            base_path=self.get_base_path()))
 
     def updateCache(self, service, url, response):
         expire = self.get_cache_expiration_time(service, url, response.status)
         if expire is not None:
-            key = self._create_key(service, url)
+            key = self._create_key(service, url,
+                                   base_path=self.get_base_path())
             data = self._format_data(response)
             try:
                 # Bypass the shim client to log the original URL if needed.
@@ -64,16 +69,25 @@ class RestclientGCSClient(GCSClient):
         """
         return getattr(settings, "RESTCLIENTS_GCS_DEFAULT_EXPIRY", 0)
 
+    def get_base_path(self):
+        """
+        Overridable method for setting the base path to be appended to
+        data written to the GCS bucket. Defaults to ''.
+        """
+        return os.getenv("GCS_BASE_PATH", default='')
+
     @staticmethod
-    def _create_key(service, url):
+    def _create_key(service, url, base_path=''):
         parsed = urlparse(url)
-        path = parsed.path
+        base_path = base_path.strip("/")
+        parsed_url_path = parsed.path.lstrip("/")
+        path = "/".join([base_path, service, parsed_url_path]).lstrip("/")
         query = parsed.query
         if path and query:
             url_key = "?".join([path, query])
         else:
             url_key = path
-        return "{}{}".format(service, url_key)
+        return url_key
 
     @staticmethod
     def _format_data(response):
