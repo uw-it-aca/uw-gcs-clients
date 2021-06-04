@@ -22,4 +22,13 @@ Optional settings:
     GCS_TIMEOUT=5  # request timeout in seconds
     GCS_NUM_RETRIES=3  # number of request retries
 
-See examples for usage.  Pull requests welcome.
+Additionally, a base path environment may be specified. It gets appended to the beginning of the api url path that's saved in the GCS bucket.
+
+    GCS_BASE_PATH="/some/base/path/"
+
+or in Python:
+
+    import os
+    os.environ["GCS_BASE_PATH"] = "/some/base/path/"
+    
+See examples for usage. Pull requests welcome.
