@@ -1,7 +1,7 @@
-# Copyright 2021 UW-IT, University of Washington
+# Copyright 2026 UW-IT, University of Washington
 # SPDX-License-Identifier: Apache-2.0
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest import TestCase
 from io import StringIO
 from gcs_clients import GCSClient
@@ -51,7 +51,7 @@ class TestGCSBucketClient(TestCase):
 
     def test_get(self):
         self.mock_blob.custom_time = \
-            datetime.utcnow() - timedelta(minutes=1)
+            datetime.now(timezone.utc) - timedelta(minutes=1)
         self.assertEqual(
             self.gcs_client.get("/api/v1/test", expire=60.01),
             '{"status": 200,'
