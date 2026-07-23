@@ -23,8 +23,8 @@ setup(
     include_package_data=True,
     install_requires=[
         'commonconf~=1.0',
-        'google-cloud-storage>=1.37.1,<2.0',
-        'google-api-core>=1.26.3,<2.0',
+        'google-cloud-storage>=2.0,<4.0',
+        'google-api-core>=2.0,<3.0',
         'mock',
     ],
     license='Apache License, Version 2.0',
@@ -36,6 +36,10 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.6'
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
     ],
 )

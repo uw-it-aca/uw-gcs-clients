@@ -1,8 +1,8 @@
-# Copyright 2021 UW-IT, University of Washington
+# Copyright 2026 UW-IT, University of Washington
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest import TestCase
 from commonconf import override_settings
 from gcs_clients import RestclientGCSClient
@@ -107,7 +107,7 @@ class TestRestclientGCSClient(TestCase):
            return_value="abc/api/v1/test")
     def test_getCache_expired(self, mock_create_key):
         self.mock_blob.custom_time = \
-            datetime.utcnow() - timedelta(seconds=11)
+            datetime.now(timezone.utc) - timedelta(seconds=11)
         self.mock_blob.download_as_string = MagicMock(
             return_value='{'
             '"status": 200,'
